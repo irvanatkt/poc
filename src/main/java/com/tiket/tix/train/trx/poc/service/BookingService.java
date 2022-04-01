@@ -2,10 +2,8 @@ package com.tiket.tix.train.trx.poc.service;
 
 import com.tiket.tix.train.trx.poc.entity.Cart;
 import com.tiket.tix.train.trx.poc.entity.Cart.Event;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RedissonClient;
 import org.redisson.api.RedissonReactiveClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
@@ -23,13 +21,7 @@ public class BookingService {
   }
 
   @Autowired
-  private ExecutorService executorService;
-
-  @Autowired
   private RedissonReactiveClient redissonReactiveClient;
-
-  @Autowired
-  private RedissonClient redissonClient;
 
   @Autowired
   private ReactiveMongoTemplate reactiveMongoTemplate;
@@ -39,19 +31,20 @@ public class BookingService {
 
   public Mono<String> booking(String cartId) {
 
-    return Mono.just(redissonReactiveClient.getLock(String.format(Constant.LOCK_CART,cartId)))
+    return Mono.just(redissonReactiveClient.getLock(String.format(Constant.LOCK_CART, cartId)))
         .flatMap(fLock ->
             fLock.lock(-1, TimeUnit.MILLISECONDS, 1)
-            .doOnSubscribe(l -> log.info("getting cart lock, updating booking cart"))
-            .then(reactiveMongoTemplate.upsert(
-                new Query().addCriteria(Criteria.where("cart_id").is(cartId)),
-                new Update().push("events", Event.builder().event("book").status("TODO").build()),
-                Cart.class))
-            .flatMap(cart -> fLock.unlock(1).thenReturn(cart))
-            .doOnNext(cart -> asyncWorker.longAsyncProcess(cartId))
-            .doOnNext(result -> log.info("finished update cart & booking thread"))
-            .map(result -> String.valueOf(result.getModifiedCount()))
-            .switchIfEmpty(Mono.error(new Throwable("error")))
+                .doOnSubscribe(l -> log.info("getting cart lock, updating booking cart"))
+                .then(reactiveMongoTemplate.upsert(
+                    new Query().addCriteria(Criteria.where("cart_id").is(cartId)),
+                    new Update().push("events",
+                        Event.builder().event("book").status("TODO").build()),
+                    Cart.class))
+                .flatMap(cart -> fLock.unlock(1).thenReturn(cart))
+                .doOnNext(cart -> asyncWorker.longAsyncProcess(cartId))
+                .doOnNext(result -> log.info("finished update cart & booking thread"))
+                .map(result -> String.valueOf(result.getModifiedCount()))
+                .switchIfEmpty(Mono.error(new Throwable("error")))
         );
   }
 

@@ -2,19 +2,13 @@ package com.tiket.tix.train.trx.poc.service;
 
 
 import com.tiket.tix.train.trx.poc.entity.Cart;
-import com.tiket.tix.train.trx.poc.entity.Cart.Event;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RExpirable;
 import org.redisson.api.RLock;
-import org.redisson.api.RSemaphore;
 import org.redisson.api.RedissonClient;
-import org.redisson.api.RedissonReactiveClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -26,9 +20,6 @@ public class AsyncWorker {
 
   @Autowired
   private ExecutorService executorService;
-
-  @Autowired
-  private RedissonReactiveClient redissonReactiveClient;
 
   @Autowired
   private RedissonClient redissonClient;

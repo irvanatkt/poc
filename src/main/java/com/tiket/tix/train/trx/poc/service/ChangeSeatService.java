@@ -1,12 +1,9 @@
 package com.tiket.tix.train.trx.poc.service;
 
-import com.mongodb.client.model.UpdateOptions;
 import com.tiket.tix.train.trx.poc.entity.Cart;
 import com.tiket.tix.train.trx.poc.entity.Cart.Event;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RedissonClient;
 import org.redisson.api.RedissonReactiveClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
@@ -22,12 +19,6 @@ public class ChangeSeatService {
 
   public ChangeSeatService() {
   }
-
-  @Autowired
-  private ExecutorService executorService;
-
-  @Autowired
-  private RedissonClient redissonClient;
 
   @Autowired
   private RedissonReactiveClient redissonReactiveClient;
