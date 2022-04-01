@@ -59,7 +59,7 @@ public class AsyncWorker {
             }
             cartLock.unlock();
 
-            // long call to productOrder + KAI
+            // long call to productOrder + KAI based on cart with stated TODO
             TimeUnit.SECONDS.sleep(10);
 
             // update to DONE
@@ -80,7 +80,7 @@ public class AsyncWorker {
             cartLock.unlock();
 
           } while ("cart has its state to process".equalsIgnoreCase(cartId));
-          // cart has its state to process
+          // cart has its state to process : retrieve next TODO status if any
           orderLock.unlock();
           log.info("finishing for cartid {}", cartId);
         }
