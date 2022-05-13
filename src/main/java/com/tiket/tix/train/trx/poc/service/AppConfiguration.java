@@ -41,7 +41,8 @@ public class AppConfiguration {
 
   @Bean
   public Scheduler scheduler(){
-    return Schedulers.fromExecutorService(executorService());
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("reactive-%d").build();
+    return Schedulers.fromExecutorService(Executors.newFixedThreadPool(10, threadFactory));
   }
 
 }

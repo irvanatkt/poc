@@ -5,6 +5,7 @@ import com.tiket.tix.train.trx.poc.entity.Cart;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RLockReactive;
@@ -37,46 +38,46 @@ public class AsyncWorker {
   public AsyncWorker() {
   }
 
-  public Mono<String> reactiveAsync(String cartId) {
+  public Mono<Void> reactiveAsync(String cartId) {
     RLockReactive orderLock = redissonClient.reactive()
         .getLock(String.format(Constant.LOCK_ORDER, cartId));
 
-    CountDownLatch countDownLatch = new CountDownLatch(5);
-    return orderLock.tryLock().filter(Boolean.TRUE::equals)
+    CountDownLatch countDownLatch = new CountDownLatch(2);
+    return orderLock.tryLock(1).filter(Boolean.TRUE::equals)
         .switchIfEmpty(Mono.defer(() -> {
           log.info("order is being updated by another process");
           return Mono.empty();
         }))
         .doOnSuccess(y -> log.info("order lock acquired"))
         .flatMap(orderIsLocked ->
-            cartProcess(cartId)
-                .repeat()
-                .doOnNext(y -> {
-                  countDownLatch.countDown();
-                  log.info("countdown {} ", countDownLatch.getCount());
-                })
-                .takeUntil(counter -> countDownLatch.getCount() < 0)
-                .collectList()
-                .map(y -> "yeah"));
+            Mono.defer(() -> {
+              AtomicBoolean isContinue = new AtomicBoolean(true);
+              return cartProcess(cartId)
+                  .doOnNext(y -> {
+                    if (y == 3) {
+                      isContinue.set(false);
+                    }
+                  })
+                  .repeat(isContinue::get).collectList();
+            }))
+        .doOnSuccess(y -> log.info("finishing all"))
+        .then(orderLock.unlock(1));
   }
 
-  private Mono<Void> cartProcess(String cartId) {
+  private Mono<Integer> cartProcess(String cartId) {
     RLockReactive cartLock = redissonClient.reactive()
         .getLock(String.format(Constant.LOCK_CART, cartId));
-    return cartLock.lock(-1, TimeUnit.SECONDS)
-        .doOnNext(n -> log.info("cartLock acquired for in progress"))
-        .map(cartIsLocked -> {
-          log.info("cartLock acquired for in progress {}", 1);
-          return 1;
-        }) // update to progress
-        .flatMap(counter -> cartLock.unlock().thenReturn(counter))
-        .flatMap(counter -> Mono.fromCallable(() -> {
-          TimeUnit.SECONDS.sleep(2);
-          return counter + 1;
-        })) // call KAI & order
-        .flatMap(counter -> cartLock.lock(-1, TimeUnit.SECONDS))
+    return cartLock.lock(-1, TimeUnit.SECONDS, 1).thenReturn(cartLock)
+        .doOnSuccess(n -> log.info("cartLock acquired for in progress"))
+//        .map(lock -> 1) // update to progress
+        .flatMap(lock -> lock.unlock(1).thenReturn(lock))
+        .doOnSuccess(n -> log.info("executing log process"))
+
+//        .flatMap(counter -> Mono.fromCallable(() -> counter + 1)) // call KAI & order
+        .flatMap(lock -> lock.lock(-1, TimeUnit.SECONDS, 1).thenReturn(lock))
         .doOnNext(n -> log.info("cartLock acquired for done"))
-        .flatMap(counter1 -> cartLock.unlock());
+        .flatMap(lock -> cartLock.unlock(1))
+        .map(y -> 3);
   }
 
   public void longAsyncProcess(String cartId) {
